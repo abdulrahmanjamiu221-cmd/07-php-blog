@@ -18,9 +18,9 @@ function redirect(string $path): void
     exit;
 }
 
-function slugify(string $value): string
+function slugify(string $title): string
 {
-    $value = trim($value);
+    $value = trim($title);
     if (function_exists('iconv')) {
         $converted = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $value);
         if ($converted !== false) {
@@ -31,6 +31,34 @@ function slugify(string $value): string
     $value = strtolower($value);
     $value = preg_replace('/[^a-z0-9]+/', '-', $value) ?? '';
     return trim($value, '-');
+}
+
+function unique_post_slug(PDO $pdo, string $title, ?int $excludeId = null): string
+{
+    $base = slugify($title);
+    if ($base === '') {
+        $base = 'post';
+    }
+    $base = substr($base, 0, 260);
+
+    $check = $excludeId === null
+        ? $pdo->prepare('SELECT 1 FROM posts WHERE slug = :slug LIMIT 1')
+        : $pdo->prepare('SELECT 1 FROM posts WHERE slug = :slug AND id <> :id LIMIT 1');
+    $candidate = $base;
+    $suffix = 2;
+    do {
+        $parameters = ['slug' => $candidate];
+        if ($excludeId !== null) {
+            $parameters['id'] = $excludeId;
+        }
+        $check->execute($parameters);
+        if (!$check->fetchColumn()) {
+            return $candidate;
+        }
+
+        $ending = '-' . $suffix++;
+        $candidate = substr($base, 0, 260 - strlen($ending)) . $ending;
+    } while (true);
 }
 
 function set_flash(string $type, string $message): void
@@ -141,19 +169,27 @@ function store_cover_upload(array $file): string
         throw new RuntimeException('The image could not be uploaded.');
     }
 
-    $maxBytes = 5 * 1024 * 1024;
-    if (($file['size'] ?? 0) > $maxBytes || !is_uploaded_file($file['tmp_name'] ?? '')) {
-        throw new RuntimeException('Choose an image smaller than 5 MB.');
+    $maxBytes = 2 * 1024 * 1024;
+    $temporaryPath = $file['tmp_name'] ?? '';
+    if (!is_string($temporaryPath) || !is_uploaded_file($temporaryPath)) {
+        throw new RuntimeException('The image upload is invalid.');
     }
 
-    $imageInfo = @getimagesize($file['tmp_name']);
-    $mime = (new finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']);
+    $fileSize = filesize($temporaryPath);
+    if ($fileSize === false || $fileSize > $maxBytes) {
+        throw new RuntimeException('Choose an image no larger than 2 MB.');
+    }
+
+    $mime = (new finfo(FILEINFO_MIME_TYPE))->file($temporaryPath);
     $extensions = [
         'image/jpeg' => 'jpg',
         'image/png' => 'png',
         'image/webp' => 'webp',
     ];
-    if ($imageInfo === false || !isset($extensions[$mime])) {
+    if (!is_string($mime) || !isset($extensions[$mime])) {
+        throw new RuntimeException('Only JPEG, PNG, and WebP images are allowed.');
+    }
+    if (@getimagesize($temporaryPath) === false) {
         throw new RuntimeException('Only JPEG, PNG, and WebP images are allowed.');
     }
 
@@ -163,7 +199,7 @@ function store_cover_upload(array $file): string
     }
 
     $filename = bin2hex(random_bytes(16)) . '.' . $extensions[$mime];
-    if (!move_uploaded_file($file['tmp_name'], $directory . DIRECTORY_SEPARATOR . $filename)) {
+    if (!move_uploaded_file($temporaryPath, $directory . DIRECTORY_SEPARATOR . $filename)) {
         throw new RuntimeException('The uploaded image could not be saved.');
     }
 
@@ -176,7 +212,7 @@ function remove_cover_image(?string $filename): void
         return;
     }
     $path = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . $filename;
-    if (is_file($path)) {
-        unlink($path);
+    if (is_file($path) && !unlink($path)) {
+        error_log('Could not remove post cover image: ' . $path);
     }
 }

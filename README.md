@@ -28,5 +28,17 @@ Apache must allow the included access files: `app/.htaccess` denies web access t
 - Draft and published post status, unique slugs, categories, author attribution, and unique cover image filenames
 - Search over published post titles and bodies using MySQL FULLTEXT
 - Password hashing, strict cookie-only sessions, HTTP-only/SameSite cookies, session ID rotation, idle timeout, and CSRF-protected mutations
-- Upload validation based on actual image content (JPEG, PNG, WebP; maximum 5 MB)
+- Upload validation based on actual image content (JPEG, PNG, WebP; maximum 2 MB)
 - Post and category administration with referential integrity; categories with assigned posts cannot be deleted
+
+If you created the database from an earlier version of `database/schema.sql` that did not have an excerpt column, run `database/migrate-add-post-excerpt.sql` once.
+
+### Cover-image upload checks
+
+- The upload error code is checked before inspecting the temporary file, so incomplete or failed uploads are rejected.
+- `is_uploaded_file()` ensures the temporary path came from PHP's HTTP upload mechanism, preventing an attacker from asking the app to move an arbitrary local file.
+- A 2 MB limit bounds disk usage and reduces storage-exhaustion denial-of-service risk.
+- `finfo` checks the file's actual MIME type and allows only JPEG, PNG, or WebP; the browser-provided filename and MIME type are not trusted, preventing extension/MIME spoofing and arbitrary file uploads.
+- `getimagesize()` confirms the content has a recognizable image structure, rejecting many non-image files disguised as images.
+- The stored extension is selected from the verified MIME type, and the filename is generated from 16 random bytes rather than user input, preventing path traversal, filename collisions, and overwriting an existing file.
+- Files are moved only into the fixed `uploads/` directory, where `.htaccess` denies PHP execution, limiting the impact if an unexpected script-like file is ever stored.

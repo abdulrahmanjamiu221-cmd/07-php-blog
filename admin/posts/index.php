@@ -24,17 +24,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect('admin/posts/');
 }
 
-$posts = $pdo->query(
-    'SELECT p.id, p.title, p.slug, p.status, p.updated_at, c.name AS category_name, a.username AS author_name
-     FROM posts p
-     JOIN categories c ON c.id = p.category_id
-     JOIN admins a ON a.id = p.author_id
-     ORDER BY p.updated_at DESC'
-)->fetchAll();
+$statusFilter = (string) ($_GET['status'] ?? 'all');
+if (!in_array($statusFilter, ['all', 'draft', 'published'], true)) {
+    $statusFilter = 'all';
+}
+$query = 'SELECT p.id, p.title, p.slug, p.status, p.updated_at, c.name AS category_name, a.username AS author_name
+          FROM posts p
+          JOIN categories c ON c.id = p.category_id
+          JOIN admins a ON a.id = p.author_id';
+if ($statusFilter === 'all') {
+    $posts = $pdo->query($query . ' ORDER BY p.updated_at DESC')->fetchAll();
+} else {
+    $statement = $pdo->prepare($query . ' WHERE p.status = :status ORDER BY p.updated_at DESC');
+    $statement->execute(['status' => $statusFilter]);
+    $posts = $statement->fetchAll();
+}
 
 admin_header('Posts');
 ?>
-<div class="page-actions"><p>Manage your articles and publication status.</p><a class="button" href="<?= e(url('admin/posts/create.php')) ?>">Create post</a></div>
+<div class="page-actions">
+    <p>Manage your articles and publication status.</p>
+    <div class="table-actions">
+        <form method="get">
+            <label class="sr-only" for="status-filter">Filter posts by status</label>
+            <select id="status-filter" name="status" onchange="this.form.submit()">
+                <option value="all" <?= $statusFilter === 'all' ? 'selected' : '' ?>>All statuses</option>
+                <option value="draft" <?= $statusFilter === 'draft' ? 'selected' : '' ?>>Drafts</option>
+                <option value="published" <?= $statusFilter === 'published' ? 'selected' : '' ?>>Published</option>
+            </select>
+        </form>
+        <a class="button" href="<?= e(url('admin/posts/create.php')) ?>">Create post</a>
+    </div>
+</div>
 <?php if (!$posts): ?><p class="empty-state">No posts found. Create your first article.</p>
 <?php else: ?><div class="table-wrap"><table>
     <thead><tr><th>Title</th><th>Category</th><th>Author</th><th>Status</th><th>Updated</th><th>Actions</th></tr></thead>

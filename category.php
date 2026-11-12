@@ -9,7 +9,7 @@ $category = $categoryQuery->fetch();
 $posts = [];
 if ($category) {
     $postQuery = $pdo->prepare(
-        "SELECT p.title, p.slug, p.body, p.cover_image, p.published_at, a.username AS author_name
+        "SELECT p.title, p.slug, p.excerpt, p.body, p.cover_image, p.published_at, a.username AS author_name
          FROM posts p JOIN admins a ON a.id = p.author_id
          WHERE p.category_id = :category_id AND p.status = 'published'
          ORDER BY p.published_at DESC, p.id DESC"
@@ -31,7 +31,7 @@ if (!$category): ?>
             <article class="post-card">
                 <?php if ($post['cover_image']): ?><a href="<?= e(url('post.php?slug=' . rawurlencode($post['slug']))) ?>"><img class="post-cover" src="<?= e(url('uploads/' . rawurlencode($post['cover_image']))) ?>" alt=""></a><?php endif; ?>
                 <div class="post-card-content"><h2><a href="<?= e(url('post.php?slug=' . rawurlencode($post['slug']))) ?>"><?= e($post['title']) ?></a></h2>
-                    <p><?= e(mb_strimwidth(strip_tags($post['body']), 0, 170, '…')) ?></p>
+                    <p><?= e($post['excerpt'] ?: mb_strimwidth(strip_tags($post['body']), 0, 170, '…')) ?></p>
                     <div class="post-meta">By <?= e($post['author_name']) ?> · <?= e(date('M j, Y', strtotime($post['published_at']))) ?></div>
                 </div>
             </article>

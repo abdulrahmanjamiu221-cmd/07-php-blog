@@ -6,7 +6,7 @@ $query = trim((string) ($_GET['q'] ?? ''));
 $posts = [];
 if ($query !== '') {
     $statement = $pdo->prepare(
-        "SELECT p.title, p.slug, p.body, p.cover_image, p.published_at,
+        "SELECT p.title, p.slug, p.excerpt, p.body, p.cover_image, p.published_at,
                 c.name AS category_name, c.slug AS category_slug, a.username AS author_name
          FROM posts p
          JOIN categories c ON c.id = p.category_id
@@ -40,7 +40,7 @@ page_header('Search');
                 <?php if ($post['cover_image']): ?><a href="<?= e(url('post.php?slug=' . rawurlencode($post['slug']))) ?>"><img class="post-cover" src="<?= e(url('uploads/' . rawurlencode($post['cover_image']))) ?>" alt=""></a><?php endif; ?>
                 <div class="post-card-content"><a class="category-tag" href="<?= e(url('category.php?slug=' . rawurlencode($post['category_slug']))) ?>"><?= e($post['category_name']) ?></a>
                     <h2><a href="<?= e(url('post.php?slug=' . rawurlencode($post['slug']))) ?>"><?= e($post['title']) ?></a></h2>
-                    <p><?= e(mb_strimwidth(strip_tags($post['body']), 0, 170, '…')) ?></p>
+                    <p><?= e($post['excerpt'] ?: mb_strimwidth(strip_tags($post['body']), 0, 170, '…')) ?></p>
                     <div class="post-meta">By <?= e($post['author_name']) ?> · <?= e(date('M j, Y', strtotime($post['published_at']))) ?></div>
                 </div>
             </article>

@@ -17,7 +17,7 @@ if (!$post) {
 }
 $categories = $pdo->query('SELECT id, name FROM categories ORDER BY name')->fetchAll();
 $title = $post['title'];
-$slug = $post['slug'];
+$excerpt = $post['excerpt'] ?? '';
 $body = $post['body'];
 $status = $post['status'];
 $categoryId = (string) $post['category_id'];
@@ -26,48 +26,41 @@ $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
     $title = trim((string) ($_POST['title'] ?? ''));
-    $slug = slugify((string) ($_POST['slug'] ?? ''));
-    if ($slug === '') {
-        $slug = slugify($title);
-    }
+    $excerpt = trim((string) ($_POST['excerpt'] ?? ''));
     $body = trim((string) ($_POST['body'] ?? ''));
     $status = (string) ($_POST['status'] ?? 'draft');
     $categoryId = (string) ($_POST['category_id'] ?? '');
     $categoryValid = filter_var($categoryId, FILTER_VALIDATE_INT) !== false;
-    if ($title === '' || mb_strlen($title) > 240 || $slug === '' || mb_strlen($slug) > 260 || $body === '' ||
+    if ($title === '' || mb_strlen($title) > 240 || mb_strlen($excerpt) > 300 || $body === '' ||
         !in_array($status, ['draft', 'published'], true) || !$categoryValid) {
-        $error = 'Enter a title, valid slug, body, and category.';
+        $error = 'Enter a title, excerpt no longer than 300 characters, body, and category.';
     } else {
         $categoryCheck = $pdo->prepare('SELECT id FROM categories WHERE id = :id');
         $categoryCheck->execute(['id' => $categoryId]);
-        $slugCheck = $pdo->prepare('SELECT id FROM posts WHERE slug = :slug AND id <> :id');
-        $slugCheck->execute(['slug' => $slug, 'id' => $id]);
         if (!$categoryCheck->fetch()) {
             $error = 'Choose an existing category.';
-        } elseif ($slugCheck->fetch()) {
-            $error = 'That slug is already in use. Choose another slug.';
         } else {
             $cover = '';
             try {
                 $cover = store_cover_upload($_FILES['cover_image'] ?? []);
+                $slug = unique_post_slug($pdo, $title, $id);
                 $removeCover = isset($_POST['remove_cover']) && $_POST['remove_cover'] === '1';
                 $newCover = $cover !== '' ? $cover : ($removeCover ? null : $post['cover_image']);
-                $publishedAt = $status === 'published'
-                    ? ($post['published_at'] ?: date('Y-m-d H:i:s'))
-                    : null;
                 $update = $pdo->prepare(
-                    'UPDATE posts SET category_id = :category_id, title = :title, slug = :slug,
-                     body = :body, status = :status, cover_image = :cover_image, published_at = :published_at
+                    'UPDATE posts SET category_id = :category_id, title = :title, slug = :slug, excerpt = :excerpt,
+                     body = :body, status = :status, cover_image = :cover_image,
+                     published_at = IF(:is_published = 1, COALESCE(published_at, NOW()), NULL)
                      WHERE id = :id'
                 );
                 $update->execute([
                     'category_id' => $categoryId,
                     'title' => $title,
                     'slug' => $slug,
+                    'excerpt' => $excerpt === '' ? null : $excerpt,
                     'body' => $body,
                     'status' => $status,
                     'cover_image' => $newCover,
-                    'published_at' => $publishedAt,
+                    'is_published' => $status === 'published' ? 1 : 0,
                     'id' => $id,
                 ]);
                 if ($cover !== '' || $removeCover) {
@@ -95,10 +88,11 @@ admin_header('Edit post');
     <?= csrf_field() ?>
     <?php if ($error): ?><div class="form-error"><?= e($error) ?></div><?php endif; ?>
     <div class="form-group"><label for="title">Title</label><input id="title" name="title" maxlength="240" required value="<?= e($title) ?>"></div>
-    <div class="form-group"><label for="slug">Slug</label><input id="slug" name="slug" maxlength="260" required value="<?= e($slug) ?>"></div>
+    <div class="form-help">The post URL is generated from the title. Duplicate titles get a unique numbered suffix.</div>
     <div class="form-group"><label for="category_id">Category</label><select id="category_id" name="category_id" required><option value="">Select a category</option><?php foreach ($categories as $category): ?><option value="<?= (int) $category['id'] ?>" <?= (string) $category['id'] === $categoryId ? 'selected' : '' ?>><?= e($category['name']) ?></option><?php endforeach; ?></select></div>
+    <div class="form-group"><label for="excerpt">Excerpt</label><textarea id="excerpt" name="excerpt" rows="3" maxlength="300"><?= e($excerpt) ?></textarea><div class="form-help">Optional short summary, up to 300 characters.</div></div>
     <div class="form-group"><label for="body">Body</label><textarea id="body" name="body" rows="16" required><?= e($body) ?></textarea><div class="form-help">Text only; line breaks are preserved on the public page.</div></div>
-    <div class="form-group"><label for="cover_image">Replace cover image</label><input id="cover_image" name="cover_image" type="file" accept="image/jpeg,image/png,image/webp"><div class="form-help">JPEG, PNG, or WebP; maximum 5 MB.</div>
+    <div class="form-group"><label for="cover_image">Replace cover image</label><input id="cover_image" name="cover_image" type="file" accept="image/jpeg,image/png,image/webp"><div class="form-help">JPEG, PNG, or WebP; maximum 2 MB.</div>
         <?php if ($post['cover_image']): ?><p class="form-help">Current: <?= e($post['cover_image']) ?></p><label><input type="checkbox" name="remove_cover" value="1" style="width:auto"> Remove current cover</label><?php endif; ?>
     </div>
     <div class="form-group"><label for="status">Status</label><select id="status" name="status"><option value="draft" <?= $status === 'draft' ? 'selected' : '' ?>>Draft</option><option value="published" <?= $status === 'published' ? 'selected' : '' ?>>Published</option></select></div>

@@ -3,7 +3,7 @@ declare(strict_types=1);
 require __DIR__ . '/app/bootstrap.php';
 
 $statement = $pdo->query(
-    "SELECT p.id, p.title, p.slug, p.body, p.cover_image, p.published_at,
+    "SELECT p.id, p.title, p.slug, p.excerpt, p.body, p.cover_image, p.published_at,
             c.name AS category_name, c.slug AS category_slug, a.username AS author_name
      FROM posts p
      JOIN categories c ON c.id = p.category_id
@@ -44,7 +44,7 @@ page_header('Latest posts');
                     <div class="post-card-content">
                         <a class="category-tag" href="<?= e(url('category.php?slug=' . rawurlencode($post['category_slug']))) ?>"><?= e($post['category_name']) ?></a>
                         <h3><a href="<?= e(url('post.php?slug=' . rawurlencode($post['slug']))) ?>"><?= e($post['title']) ?></a></h3>
-                        <p><?= e(mb_strimwidth(strip_tags($post['body']), 0, 170, '…')) ?></p>
+                        <p><?= e($post['excerpt'] ?: mb_strimwidth(strip_tags($post['body']), 0, 170, '…')) ?></p>
                         <div class="post-meta">By <?= e($post['author_name']) ?> · <?= e(date('M j, Y', strtotime($post['published_at']))) ?></div>
                     </div>
                 </article>
