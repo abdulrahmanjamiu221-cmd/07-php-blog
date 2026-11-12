@@ -2,5 +2,9 @@ Options -MultiViews
 RewriteEngine On
 RewriteBase /swd/07-php-blog/
 
+<FilesMatch "(?i)\.(sql|sqlite|bak|dump)$">
+    Require all denied
+</FilesMatch>
+
 RewriteRule ^post/([a-z0-9-]+)/?$ post.php?slug=$1 [L,QSA,NC]
 RewriteRule ^category/([a-z0-9-]+)/?$ category.php?slug=$1 [L,QSA,NC]

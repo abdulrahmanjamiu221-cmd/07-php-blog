@@ -1,45 +1,76 @@
 # SWD Blog CMS
 
-A server-rendered blog and admin CMS for PHP 8 and MySQL. It includes public post, category, and full-text search pages; an authenticated admin area for posts and categories; and image uploads.
-
-## Requirements
-
-- PHP 8.0+ with PDO MySQL, Fileinfo, and mbstring extensions
-- MySQL 5.7+ (InnoDB and FULLTEXT support)
-- Apache with `mod_rewrite` and `.htaccess` enabled (`AllowOverride All`)
-
-## Setup on XAMPP
-
-1. In phpMyAdmin, import `database/schema.sql`. It creates and selects the `swd_blog` database and its tables, including the posts FULLTEXT index. If you already have the earlier SWD Blog schema, run `database/migrate-existing.sql` against `swd_blog` instead; it preserves existing categories and posts.
-2. The default local connection is `127.0.0.1`, database `swd_blog`, user `root`, and an empty password. To override these settings, define `BLOG_DB_HOST`, `BLOG_DB_NAME`, `BLOG_DB_USER`, and `BLOG_DB_PASSWORD` in the PHP process environment.
-3. From Command Prompt or PowerShell, create the first administrator:
-
-   ```text
-   C:\xampp\php\php.exe create-admin.php "abdulrahman" abdulrahman@example.com
-   ```
-
-   The command securely prompts for and confirms a password (minimum 12 characters). The script refuses to run after an admin already exists.
-4. Visit `http://localhost/swd/07-php-blog/`. The admin login is at `http://localhost/swd/07-php-blog/admin/login.php`.
-
-Apache must allow the included access files: `app/.htaccess` denies web access to application internals, and `uploads/.htaccess` prevents uploaded scripts from being served as executable code. The upload directory is created automatically when the first cover image is uploaded.
+A server-rendered PHP 8 and MySQL blog with a public reading experience and an authenticated admin CMS.
 
 ## Features
 
-- Draft and published post status, unique slugs, categories, author attribution, and unique cover image filenames
-- Search over published post titles and bodies using MySQL FULLTEXT
-- Pretty public routes at `/post/{slug}` and `/category/{slug}`, with six newest posts per homepage page
-- Password hashing, strict cookie-only sessions, HTTP-only/SameSite cookies, session ID rotation, idle timeout, and CSRF-protected mutations
-- Upload validation based on actual image content (JPEG, PNG, WebP; maximum 2 MB)
-- Post and category administration with referential integrity; categories with assigned posts cannot be deleted
+- Public homepage with six newest published posts per page
+- Pretty article and category URLs: `/post/{slug}` and `/category/{slug}`
+- Article reading-time estimate, safe paragraph rendering, and up to three related posts
+- Full-text search with a `LIKE` fallback for short queries
+- Admin dashboard with post status counts, latest five posts, and post totals by category
+- Post/category CRUD, draft and published statuses, excerpt support, unique slugs, and CSRF protection
+- Cover image uploads limited to JPEG, PNG, or WebP and 2 MB
+- Hardened admin sessions and password hashing
 
-If you created the database from an earlier version of `database/schema.sql` that did not have an excerpt column, run `database/migrate-add-post-excerpt.sql` once.
+## Screenshots
 
-### Cover-image upload checks
+Screenshots are not included yet. Add screenshots of the homepage and admin dashboard here when available.
 
-- The upload error code is checked before inspecting the temporary file, so incomplete or failed uploads are rejected.
-- `is_uploaded_file()` ensures the temporary path came from PHP's HTTP upload mechanism, preventing an attacker from asking the app to move an arbitrary local file.
-- A 2 MB limit bounds disk usage and reduces storage-exhaustion denial-of-service risk.
-- `finfo` checks the file's actual MIME type and allows only JPEG, PNG, or WebP; the browser-provided filename and MIME type are not trusted, preventing extension/MIME spoofing and arbitrary file uploads.
-- `getimagesize()` confirms the content has a recognizable image structure, rejecting many non-image files disguised as images.
-- The stored extension is selected from the verified MIME type, and the filename is generated from 16 random bytes rather than user input, preventing path traversal, filename collisions, and overwriting an existing file.
-- Files are moved only into the fixed `uploads/` directory, where `.htaccess` denies PHP execution, limiting the impact if an unexpected script-like file is ever stored.
+## Setup on XAMPP
+
+1. Place the project at `C:\xampp\htdocs\swd\07-php-blog`.
+2. Start Apache and MySQL in the XAMPP Control Panel. Ensure `mod_rewrite` is enabled and Apache allows `.htaccess` overrides (`AllowOverride All`).
+3. Open `http://localhost/phpmyadmin/`.
+   - To restore a previously exported backup, select the `swd_blog` database and use **Import** to load the SQL backup from outside the web root (for example, `C:\xampp\database.sql`).
+   - For a fresh install, import `database/schema.sql`; it creates the `swd_blog` database and tables.
+   - If you have an older SWD Blog database, run `database/migrate-existing.sql`. If that installation also lacks the excerpt field, run `database/migrate-add-post-excerpt.sql`.
+4. The default local connection is host `127.0.0.1`, database `swd_blog`, user `root`, and an empty password. Override these with `BLOG_DB_HOST`, `BLOG_DB_NAME`, `BLOG_DB_USER`, and `BLOG_DB_PASSWORD` environment variables if needed.
+5. From Command Prompt or PowerShell, create the first administrator:
+
+   ```text
+   cd C:\xampp\htdocs\swd\07-php-blog
+   C:\xampp\php\php.exe create-admin.php "abdulrahman" abdulrahman@example.com
+   ```
+
+   Enter and confirm a password of at least 12 characters when prompted.
+6. Optionally add 12 sample posts across Tutorials, News, and Career:
+
+   ```text
+   C:\xampp\php\php.exe seed.php
+   ```
+
+   Seeding requires an admin account. Existing seed posts are skipped on subsequent runs.
+7. Visit `http://localhost/swd/07-php-blog/`. Admin sign-in is at `http://localhost/swd/07-php-blog/admin/login.php`.
+
+The `app/.htaccess` file denies web access to application internals. `uploads/.htaccess` prevents uploaded scripts from executing. The upload directory is created when the first cover image is uploaded.
+
+## Exporting a database backup
+
+In phpMyAdmin, select `swd_blog`, open **Export**, choose **Quick** and **SQL**, then click **Go**. Save the downloaded file as `database.sql` somewhere outside `C:\xampp\htdocs` (for example, `C:\xampp\database.sql`). To restore it later, select `swd_blog` in phpMyAdmin, open **Import**, choose that file, and click **Go**. Never store database exports under the web root: they contain administrator password hashes and any private content. The root `.htaccess` also denies direct downloads of SQL and common backup files as a defense in depth.
+
+## Folder structure
+
+```text
+07-php-blog/
+|-- .htaccess             # Pretty routes and backup-file access denial
+|-- admin/
+|   |-- categories/       # Category list, create, and edit
+|   |-- posts/            # Post list, create, and edit
+|   |-- index.php         # Admin dashboard
+|   |-- login.php
+|   `-- logout.php
+|-- app/                  # Bootstrap, DB, auth, CSRF, and helpers (web-denied)
+|-- assets/
+|   `-- style.css
+|-- database/
+|   |-- schema.sql
+|   `-- migrate-*.sql
+|-- uploads/              # Cover images (PHP execution disabled)
+|-- category.php
+|-- create-admin.php      # CLI only
+|-- index.php
+|-- post.php
+|-- search.php
+`-- seed.php              # CLI only
+```
