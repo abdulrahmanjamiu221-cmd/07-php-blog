@@ -6,6 +6,22 @@ function e(mixed $value): string
     return htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
+function render_paragraphs(string $text): string
+{
+    $text = str_replace(["\r\n", "\r"], "\n", trim($text));
+    $paragraphs = preg_split('/\n{2,}/', $text) ?: [];
+    $rendered = [];
+
+    foreach ($paragraphs as $paragraph) {
+        $paragraph = trim($paragraph);
+        if ($paragraph !== '') {
+            $rendered[] = '<p>' . nl2br(e($paragraph), false) . '</p>';
+        }
+    }
+
+    return implode("\n", $rendered);
+}
+
 function url(string $path = ''): string
 {
     $path = ltrim($path, '/');

@@ -6,7 +6,7 @@ A server-rendered blog and admin CMS for PHP 8 and MySQL. It includes public pos
 
 - PHP 8.0+ with PDO MySQL, Fileinfo, and mbstring extensions
 - MySQL 5.7+ (InnoDB and FULLTEXT support)
-- Apache with `.htaccess` enabled (`AllowOverride All`)
+- Apache with `mod_rewrite` and `.htaccess` enabled (`AllowOverride All`)
 
 ## Setup on XAMPP
 
@@ -27,6 +27,7 @@ Apache must allow the included access files: `app/.htaccess` denies web access t
 
 - Draft and published post status, unique slugs, categories, author attribution, and unique cover image filenames
 - Search over published post titles and bodies using MySQL FULLTEXT
+- Pretty public routes at `/post/{slug}` and `/category/{slug}`, with six newest posts per homepage page
 - Password hashing, strict cookie-only sessions, HTTP-only/SameSite cookies, session ID rotation, idle timeout, and CSRF-protected mutations
 - Upload validation based on actual image content (JPEG, PNG, WebP; maximum 2 MB)
 - Post and category administration with referential integrity; categories with assigned posts cannot be deleted

@@ -25,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $categories = $pdo->query(
-    'SELECT c.id, c.name, c.slug, c.description, c.created_at, COUNT(p.id) AS post_count
+    'SELECT c.id, c.name, c.slug, c.description, COUNT(p.id) AS post_count
      FROM categories c LEFT JOIN posts p ON p.category_id = c.id
      GROUP BY c.id ORDER BY c.name'
 )->fetchAll();

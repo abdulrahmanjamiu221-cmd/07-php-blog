@@ -66,7 +66,7 @@ admin_header('Posts');
             <td><?= e(date('M j, Y', strtotime($post['updated_at']))) ?></td>
             <td class="table-actions">
                 <a href="<?= e(url('admin/posts/edit.php?id=' . (int) $post['id'])) ?>">Edit</a>
-                <?php if ($post['status'] === 'published'): ?><a href="<?= e(url('post.php?slug=' . rawurlencode($post['slug']))) ?>" target="_blank" rel="noopener">View</a><?php endif; ?>
+                <?php if ($post['status'] === 'published'): ?><a href="<?= e(url('post/' . rawurlencode($post['slug']))) ?>" target="_blank" rel="noopener">View</a><?php endif; ?>
                 <form class="inline-form" method="post" onsubmit="return confirm('Delete this post permanently?');">
                     <?= csrf_field() ?><input type="hidden" name="id" value="<?= (int) $post['id'] ?>">
                     <button class="link-danger" type="submit" style="border:0;background:none;padding:0;cursor:pointer">Delete</button>
